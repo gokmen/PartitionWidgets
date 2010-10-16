@@ -8,8 +8,10 @@ from PyQt4 import QtCore, QtGui
 
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import QPoint
+from PyQt4.QtCore import QMimeData
 
 from PyQt4.QtGui import QFrame
+from PyQt4.QtGui import QDrag
 from PyQt4.QtGui import QLabel
 from PyQt4.QtGui import QWidget
 from PyQt4.QtGui import QSizePolicy
@@ -22,6 +24,8 @@ STYLES = {FREE:'background-color:rgba(0,0,0,0); border:1px dotted red;',
           MS:'background-color:darkgreen',
           UK:'background-color:pink; color:black;'}
 
+DRAG_STYLE = 'background-color:rgba(0,0,0,0);color:rgba(0,0,0,0);border:1px dotted white'
+
 class Partition(QLabel):
     def __init__(self, parent, title = 'Free Space', fs_type = FREE, size = 0):
         QLabel.__init__(self, parent)
@@ -30,23 +34,36 @@ class Partition(QLabel):
         self.setStyleSheet(STYLES[fs_type])
         self.setAlignment(Qt.AlignCenter)
         self.setText(title)
-        self.dragPosition = None
+        self._dragPosition = None
+        self._tempWidget = None
 
     def _setSize(self, size):
         self._size = size
-        self.sizePolicy = QSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-        self.sizePolicy.setHorizontalStretch(self._size)
-        self.sizePolicy.setVerticalStretch(0)
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.dragPosition = event.globalPos() - self.frameGeometry().topLeft()
-            event.accept()
+        event.accept()
+        if event.button() == Qt.LeftButton and not self._fs_type == FREE:
+            self._tempWidget = self.copyCat(self)
+            self._dragPosition = event.pos()
+            self.setStyleSheet(DRAG_STYLE)
 
     def mouseMoveEvent(self, event):
-        if event.buttons() & Qt.LeftButton:
-            self.move(event.globalPos() - self.dragPosition)
-            event.accept()
+        event.accept()
+        if event.buttons() & Qt.LeftButton and not self._fs_type == FREE:
+            self._tempWidget.move(self.parentWidget().parentWidget().mapFromGlobal(event.globalPos()) - self._dragPosition)
+
+    def mouseReleaseEvent(self, event):
+        if self._tempWidget:
+            self._tempWidget.hide()
+            self.setStyleSheet(STYLES[self._fs_type])
+            del self._tempWidget
+
+    def copyCat(self, source):
+        new = Partition(self.parentWidget().parentWidget(), self.text(), self._fs_type, self._size)
+        new.resize(self.size())
+        new.move(self.pos() + self.parentWidget().pos())
+        new.show()
+        return new
 
 class Block(QFrame):
 
@@ -83,13 +100,6 @@ class Block(QFrame):
     def _updateSize(self):
         for i in range(len(self._parttions)):
             self.layout.setStretch(i, self._parttions[i]._size)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            epos = event.pos()
-            for partition in self._parttions:
-                if partition.rect().contains(QPoint(epos.x(), epos.y())):
-                    partition.mousePressEvent(event)
 
 class Test(QWidget):
 
