@@ -8,6 +8,7 @@ from PyQt4 import QtCore, QtGui
 
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import QPoint
+from PyQt4.QtCore import QRect
 from PyQt4.QtCore import QMimeData
 
 from PyQt4.QtGui import QFrame
@@ -57,6 +58,7 @@ class Partition(QLabel):
             self._tempWidget.hide()
             self.setStyleSheet(STYLES[self._fs_type])
             del self._tempWidget
+            self.parentWidget()._dropEvent(self, event.globalPos())
 
     def copyCat(self, source):
         new = Partition(self.parentWidget().parentWidget(), self.text(), self._fs_type, self._size)
@@ -67,7 +69,7 @@ class Partition(QLabel):
 
 class Block(QFrame):
 
-    def __init__(self, parent, size, layout = HORIZONTAL):
+    def __init__(self, parent, name, size, layout = HORIZONTAL):
         QFrame.__init__(self, parent)
         self.setFrameShape(QFrame.StyledPanel)
         self.setFrameShadow(QFrame.Raised)
@@ -77,13 +79,19 @@ class Block(QFrame):
         else:
             self.layout = QVBoxLayout(self)
 
+        self._name = name
         self._layout = layout
         self._size = size
         self._used_size = 0
-        self._parttions = []
+        self._partitions = []
+        self._accepted_blocks = []
+
+    def connectToBlock(self, block):
+        self._accepted_blocks.append(block)
+        block._accepted_blocks.append(self)
 
     def addPartition(self, partition):
-        self._parttions.append(partition)
+        self._partitions.append(partition)
 
         if partition._fs_type == FREE:
             size = self._size - self._used_size
@@ -94,12 +102,26 @@ class Block(QFrame):
         self._updateSize()
 
     def deletePartition(self, partition):
-        self._parttions.remove(partition)
+        self._partitions.remove(partition)
         self.layout.removeWidget(partition)
 
     def _updateSize(self):
-        for i in range(len(self._parttions)):
-            self.layout.setStretch(i, self._parttions[i]._size)
+        for i in range(len(self._partitions)):
+            self.layout.setStretch(i, self._partitions[i]._size)
+
+    def _dropEvent(self, partition, pos):
+        for block in self._accepted_blocks:
+            bpos = self.parentWidget().mapToGlobal(block.pos())
+            bpos = QRect(bpos, QPoint(block.width(), block.height()) + bpos)
+            if bpos.contains(pos):
+                print 'Partition "%s" from "%s" dropped on the block "%s"' % (partition.text(), partition.parentWidget()._name, block._name)
+                for _partition in block._partitions:
+                    bpos = self.parentWidget().mapToGlobal(_partition.pos())
+                    bpos = QRect(bpos, QPoint(_partition.width(), _partition.height()) + bpos)
+                    if bpos.contains(pos):
+                        print _partition._fs_type, _partition.text(), _partition._size
+                        if _partition._fs_type == FREE and _partition._size >= partition._size:
+                            print _partition.text()
 
 class Test(QWidget):
 
@@ -107,21 +129,21 @@ class Test(QWidget):
         QWidget.__init__(self, parent)
         self.layout = QVBoxLayout(self)
 
-        disk1 = Block(self, 220)
+        disk1 = Block(self, 'Western Digital ATA', 220)
         disk1.addPartition(Partition(disk1, 'sda1', EXT, 100))
         disk1.addPartition(Partition(disk1, 'sda2', MS, 30))
         disk1.addPartition(Partition(disk1, 'free', FREE))
 
         self.layout.addWidget(disk1)
 
-        disk2 = Block(self, 330)
+        disk2 = Block(self, 'Seagate Falan Filan', 330)
         disk2.addPartition(Partition(disk2, 'sdb1', UK, 20))
         disk2.addPartition(Partition(disk2, 'sdb2', EXT, 130))
         disk2.addPartition(Partition(disk2, 'sdb3', EXT, 30))
-        disk2.addPartition(Partition(disk2, 'sdb4', MS, 130))
         disk2.addPartition(Partition(disk2, 'free', FREE))
 
         self.layout.addWidget(disk2)
+        disk1.connectToBlock(disk2)
 
 if __name__ == "__main__":
     import sys
