@@ -12,7 +12,7 @@ from PyQt4.QtCore import QRect
 from PyQt4.QtCore import QSize
 from PyQt4.QtCore import QMimeData
 
-from PyQt4.QtGui import QFrame
+from PyQt4.QtGui import QGroupBox
 from PyQt4.QtGui import QDrag
 from PyQt4.QtGui import QLabel
 from PyQt4.QtGui import QWidget
@@ -71,12 +71,10 @@ class Partition(QLabel):
         new.show()
         return new
 
-class Block(QFrame):
+class Block(QGroupBox):
 
     def __init__(self, parent, name, size, layout = HORIZONTAL):
-        QFrame.__init__(self, parent)
-        self.setFrameShape(QFrame.StyledPanel)
-        self.setFrameShadow(QFrame.Raised)
+        QGroupBox.__init__(self, '%s - %s MB' % (name, size), parent)
 
         if layout == HORIZONTAL:
             self.layout = QHBoxLayout(self)
@@ -120,9 +118,15 @@ class Block(QFrame):
         self._used_size = 0
         for partition in self._partitions:
             partition.hide()
+            self.layout.removeWidget(partition)
         self._partitions = []
 
-    def deletePartition(self, partition):
+    def deletePartition(self, partition, fillFree = False):
+        if fillFree:
+            pin = self._partitions.index(partition)
+            newFreePartition = Partition(self, 'free', FREE, partition._size)
+            self.addPartition(newFreePartition, pin)
+
         self._partitions.remove(partition)
         self.layout.removeWidget(partition)
         self._used_size -= partition._size
@@ -132,6 +136,14 @@ class Block(QFrame):
         if all(partition._fs_type == FREE for partition in self._partitions):
             self.deleteAllPartitions()
             self.setBlockAsFree()
+
+        for i in range(len(self._partitions) - 1):
+            if self._partitions[i]._fs_type == FREE and self._partitions[i+1]._fs_type == FREE:
+                newFreePartition = Partition(self, 'free', FREE, self._partitions[i]._size + self._partitions[i+1]._size)
+                self.deletePartition(self._partitions[i])
+                self.deletePartition(self._partitions[i])
+                self.addPartition(newFreePartition, i)
+                break
 
         self._updateSize()
 
@@ -163,10 +175,8 @@ class Block(QFrame):
                         if _partition._fs_type == FREE and _partition._size >= partition._size:
                             print 'It is ok to create a new partition !'
                             block.updatePartition(_partition, partition)
-                            self.deletePartition(partition)
+                            self.deletePartition(partition, fillFree = True)
                             break
-
-            print '----------------------'
 
 class Test(QWidget):
 
