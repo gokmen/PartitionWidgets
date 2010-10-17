@@ -53,7 +53,8 @@ class Partition(QLabel):
     def mouseMoveEvent(self, event):
         event.accept()
         if event.buttons() & Qt.LeftButton and not self._fs_type == FREE:
-            self._tempWidget.move(self.parentWidget().parentWidget().mapFromGlobal(event.globalPos()) - self._dragPosition)
+            self._tempWidget.move(self.parentWidget().parentWidget().mapFromGlobal(\
+                    event.globalPos()) - self._dragPosition)
 
     def mouseReleaseEvent(self, event):
         if self._tempWidget:
@@ -116,12 +117,14 @@ class Block(QFrame):
             bpos = self.parentWidget().mapToGlobal(block.pos())
             bpos = QRect(bpos, block.size())
             if bpos.contains(pos):
-                print 'Partition "%s" from "%s" dropped on the block "%s"' % (partition.text(), partition.parentWidget()._name, block._name)
+                print 'Partition "%s" from "%s" dropped on the block "%s"' % \
+                        (partition.text(), partition.parentWidget()._name, block._name)
                 for _partition in block._partitions:
                     bpos = _partition.parentWidget().mapToGlobal(_partition.pos())
                     rect =  QRect(bpos, _partition.size())
                     if rect.contains(pos, proper = True):
-                        print 'Partition "%s" dropped on the partition "%s (%s-%s)"' % (partition.text(), _partition.text(), _partition._fs_type, _partition._size)
+                        print 'Partition "%s" dropped on the partition "%s (%s-%s)"' % \
+                                (partition.text(), _partition.text(), _partition._fs_type, _partition._size)
                         if _partition._fs_type == FREE and _partition._size >= partition._size:
                             print 'It is ok to create a new partition !'
             print '----------------------'
@@ -132,20 +135,20 @@ class Test(QWidget):
         QWidget.__init__(self, parent)
         self.layout = QVBoxLayout(self)
 
-        disk1 = Block(self, 'Western Digital ATA', 220)
+        disk1 = Block(self, 'Western Digital ATA', 220)#, layout = VERTICAL)
         disk1.addPartition(Partition(disk1, 'sda1', EXT, 100))
         disk1.addPartition(Partition(disk1, 'sda2', MS, 30))
         disk1.addPartition(Partition(disk1, 'free', FREE))
         self.layout.addWidget(disk1)
 
-        disk2 = Block(self, 'Seagate Falan Filan', 330)
+        disk2 = Block(self, 'Seagate Falan Filan', 330)#, layout = VERTICAL)
         disk2.addPartition(Partition(disk2, 'sdb1', UK, 20))
         disk2.addPartition(Partition(disk2, 'sdb2', EXT, 130))
         disk2.addPartition(Partition(disk2, 'sdb3', EXT, 30))
         disk2.addPartition(Partition(disk2, 'free', FREE))
         self.layout.addWidget(disk2)
 
-        disk3 = Block(self, 'Super USB Disk', 4330)
+        disk3 = Block(self, 'Super USB Disk', 4330)#, layout = VERTICAL)
         disk3.addPartition(Partition(disk3, 'free', FREE, 2220))
         disk3.addPartition(Partition(disk3, 'sdc1', EXT, 1000))
         disk3.addPartition(Partition(disk3, 'sdc2', FREE))
