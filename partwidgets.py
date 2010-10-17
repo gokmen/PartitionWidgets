@@ -38,6 +38,7 @@ class Partition(QLabel):
         self.setText(title)
         self._dragPosition = None
         self._tempWidget = None
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred))
 
     def _setSize(self, size):
         self._size = size
@@ -90,23 +91,57 @@ class Block(QFrame):
         self._accepted_blocks = []
 
     def connectToBlock(self, block):
-        self._accepted_blocks.append(block)
-        block._accepted_blocks.append(self)
+        if not block in self._accepted_blocks:
+            self._accepted_blocks.append(block)
+        if not self in block._accepted_blocks:
+            block._accepted_blocks.append(self)
 
-    def addPartition(self, partition):
-        self._partitions.append(partition)
+    def addPartition(self, partition, index = None):
+
+        if index == None:
+            index = len(self._partitions)
+
+        self._partitions.insert(index, partition)
 
         if partition._fs_type == FREE and not partition._size:
             size = self._size - self._used_size
             partition._setSize(size)
+
         self._used_size += partition._size
 
-        self.layout.addWidget(partition)
+        self.layout.insertWidget(index, partition)
         self._updateSize()
+
+    def setBlockAsFree(self):
+        freePartition = Partition(self, 'free', FREE, self._size)
+        self.addPartition(freePartition, 0)
+
+    def deleteAllPartitions(self):
+        self._used_size = 0
+        for partition in self._partitions:
+            partition.hide()
+        self._partitions = []
 
     def deletePartition(self, partition):
         self._partitions.remove(partition)
         self.layout.removeWidget(partition)
+        self._used_size -= partition._size
+        partition.hide()
+        del partition
+
+        if all(partition._fs_type == FREE for partition in self._partitions):
+            self.deleteAllPartitions()
+            self.setBlockAsFree()
+
+        self._updateSize()
+
+    def updatePartition(self, oP, sP):
+        oldIndex = self._partitions.index(oP)
+        newPartition = Partition(self, sP.text(), sP._fs_type, sP._size)
+        newFreePartition = Partition(self, 'free', FREE, oP._size - sP._size)
+        self.addPartition(newPartition, oldIndex)
+        self.addPartition(newFreePartition, oldIndex + 1)
+        self.deletePartition(oP)
 
     def _updateSize(self):
         for i in range(len(self._partitions)):
@@ -127,6 +162,10 @@ class Block(QFrame):
                                 (partition.text(), _partition.text(), _partition._fs_type, _partition._size)
                         if _partition._fs_type == FREE and _partition._size >= partition._size:
                             print 'It is ok to create a new partition !'
+                            block.updatePartition(_partition, partition)
+                            self.deletePartition(partition)
+                            break
+
             print '----------------------'
 
 class Test(QWidget):
@@ -135,23 +174,24 @@ class Test(QWidget):
         QWidget.__init__(self, parent)
         self.layout = QVBoxLayout(self)
 
-        disk1 = Block(self, 'Western Digital ATA', 220)#, layout = VERTICAL)
-        disk1.addPartition(Partition(disk1, 'sda1', EXT, 100))
-        disk1.addPartition(Partition(disk1, 'sda2', MS, 30))
+        disk1 = Block(self, 'Western Digital ATA', 2220)#, layout = VERTICAL)
+        disk1.addPartition(Partition(disk1, 'sda1', EXT, 800))
+        disk1.addPartition(Partition(disk1, 'sda2', MS, 400))
         disk1.addPartition(Partition(disk1, 'free', FREE))
         self.layout.addWidget(disk1)
 
-        disk2 = Block(self, 'Seagate Falan Filan', 330)#, layout = VERTICAL)
-        disk2.addPartition(Partition(disk2, 'sdb1', UK, 20))
-        disk2.addPartition(Partition(disk2, 'sdb2', EXT, 130))
-        disk2.addPartition(Partition(disk2, 'sdb3', EXT, 30))
+        disk2 = Block(self, 'Seagate Falan Filan', 5330)#, layout = VERTICAL)
+        disk2.addPartition(Partition(disk2, 'sdb1', UK, 120))
+        disk2.addPartition(Partition(disk2, 'sdb2', EXT, 530))
+        disk2.addPartition(Partition(disk2, 'sdb3', EXT, 2830))
         disk2.addPartition(Partition(disk2, 'free', FREE))
         self.layout.addWidget(disk2)
 
         disk3 = Block(self, 'Super USB Disk', 4330)#, layout = VERTICAL)
         disk3.addPartition(Partition(disk3, 'free', FREE, 2220))
         disk3.addPartition(Partition(disk3, 'sdc1', EXT, 1000))
-        disk3.addPartition(Partition(disk3, 'sdc2', FREE))
+        disk3.addPartition(Partition(disk3, 'sdc2', MS, 620))
+        disk3.addPartition(Partition(disk3, 'free', FREE))
         self.layout.addWidget(disk3)
 
         disk1.connectToBlock(disk2)
