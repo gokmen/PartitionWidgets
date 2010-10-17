@@ -21,12 +21,13 @@ from PyQt4.QtGui import QHBoxLayout, QVBoxLayout
 
 FREE, EXT, MS, UK = range(4)
 VERTICAL, HORIZONTAL = range(2)
-STYLES = {FREE:'background-color:rgba(0,0,0,0); border:1px dotted red;',
-          EXT:'background-color:blue;',
-          MS:'background-color:darkgreen',
-          UK:'background-color:pink; color:black;'}
+SHARED = 'QLabel{border:1px solid #585858;border-radius:4px;}'
+STYLES = {FREE:'background-color:rgba(0,0,0,80); border:2px solid #585858;',
+          EXT:'background-color:#008080;',
+          MS:'background-color:#008000;color:white;',
+          UK:'background-color:pink;color:black;'}
 
-DRAG_STYLE = 'background-color:rgba(0,0,0,0);color:rgba(0,0,0,0);border:1px dotted white'
+DRAG_STYLE = 'background-color:rgba(0,0,0,0);color:rgba(0,0,0,0);border:1px dotted #555;'
 
 class Partition(QLabel):
     def __init__(self, parent, title = 'Free Space', fs_type = FREE, size = 0):
@@ -182,11 +183,13 @@ class Test(QWidget):
 
     def __init__(self, parent = None):
         QWidget.__init__(self, parent)
+        self.setStyleSheet(SHARED)
         self.layout = QVBoxLayout(self)
 
         disk1 = Block(self, 'Western Digital ATA', 2220)#, layout = VERTICAL)
         disk1.addPartition(Partition(disk1, 'sda1', EXT, 800))
         disk1.addPartition(Partition(disk1, 'sda2', MS, 400))
+        disk1.addPartition(Partition(disk1, 'sda3', UK, 620))
         disk1.addPartition(Partition(disk1, 'free', FREE))
         self.layout.addWidget(disk1)
 
@@ -212,6 +215,7 @@ if __name__ == "__main__":
     import sys
     app = QtGui.QApplication(sys.argv)
     ui = Test()
+    ui.resize(630, 300)
     ui.show()
     sys.exit(app.exec_())
 
