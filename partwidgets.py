@@ -9,6 +9,7 @@ from PyQt4 import QtCore, QtGui
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import QPoint
 from PyQt4.QtCore import QRect
+from PyQt4.QtCore import QSize
 from PyQt4.QtCore import QMimeData
 
 from PyQt4.QtGui import QFrame
@@ -40,6 +41,7 @@ class Partition(QLabel):
 
     def _setSize(self, size):
         self._size = size
+        self.setToolTip('Size: %s MB' % size)
 
     def mousePressEvent(self, event):
         event.accept()
@@ -93,7 +95,7 @@ class Block(QFrame):
     def addPartition(self, partition):
         self._partitions.append(partition)
 
-        if partition._fs_type == FREE:
+        if partition._fs_type == FREE and not partition._size:
             size = self._size - self._used_size
             partition._setSize(size)
         self._used_size += partition._size
@@ -112,16 +114,17 @@ class Block(QFrame):
     def _dropEvent(self, partition, pos):
         for block in self._accepted_blocks:
             bpos = self.parentWidget().mapToGlobal(block.pos())
-            bpos = QRect(bpos, QPoint(block.width(), block.height()) + bpos)
+            bpos = QRect(bpos, block.size())
             if bpos.contains(pos):
                 print 'Partition "%s" from "%s" dropped on the block "%s"' % (partition.text(), partition.parentWidget()._name, block._name)
                 for _partition in block._partitions:
-                    bpos = self.parentWidget().mapToGlobal(_partition.pos())
-                    bpos = QRect(bpos, QPoint(_partition.width(), _partition.height()) + bpos)
-                    if bpos.contains(pos):
-                        print _partition._fs_type, _partition.text(), _partition._size
+                    bpos = _partition.parentWidget().mapToGlobal(_partition.pos())
+                    rect =  QRect(bpos, _partition.size())
+                    if rect.contains(pos, proper = True):
+                        print 'Partition "%s" dropped on the partition "%s (%s-%s)"' % (partition.text(), _partition.text(), _partition._fs_type, _partition._size)
                         if _partition._fs_type == FREE and _partition._size >= partition._size:
-                            print _partition.text()
+                            print 'It is ok to create a new partition !'
+            print '----------------------'
 
 class Test(QWidget):
 
@@ -133,7 +136,6 @@ class Test(QWidget):
         disk1.addPartition(Partition(disk1, 'sda1', EXT, 100))
         disk1.addPartition(Partition(disk1, 'sda2', MS, 30))
         disk1.addPartition(Partition(disk1, 'free', FREE))
-
         self.layout.addWidget(disk1)
 
         disk2 = Block(self, 'Seagate Falan Filan', 330)
@@ -141,9 +143,17 @@ class Test(QWidget):
         disk2.addPartition(Partition(disk2, 'sdb2', EXT, 130))
         disk2.addPartition(Partition(disk2, 'sdb3', EXT, 30))
         disk2.addPartition(Partition(disk2, 'free', FREE))
-
         self.layout.addWidget(disk2)
+
+        disk3 = Block(self, 'Super USB Disk', 4330)
+        disk3.addPartition(Partition(disk3, 'free', FREE, 2220))
+        disk3.addPartition(Partition(disk3, 'sdc1', EXT, 1000))
+        disk3.addPartition(Partition(disk3, 'sdc2', FREE))
+        self.layout.addWidget(disk3)
+
         disk1.connectToBlock(disk2)
+        disk1.connectToBlock(disk3)
+        disk2.connectToBlock(disk3)
 
 if __name__ == "__main__":
     import sys
